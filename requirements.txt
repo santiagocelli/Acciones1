@@ -4,3 +4,4 @@ requests
 beautifulsoup4
 matplotlib
 pandas_datareader
+pandas_datareader.dat
