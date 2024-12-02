@@ -4,7 +4,6 @@ requests
 beautifulsoup4
 matplotlib
 pandas-datareader
-distutils
 yfinance
 ta
 mplfinance
