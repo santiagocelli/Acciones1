@@ -14,21 +14,33 @@ def fetch_sp500_list():
 # Función para obtener lista de empresas del Merval
 def fetch_merval_list():
     """Lista predefinida de empresas del Merval."""
-    # Aquí se puede usar scraping o una API para obtener la lista actualizada.
     return ["GGAL.BA", "YPF.BA", "PAMP.BA", "TXAR.BA", "BMA.BA"]
 
 # Función para obtener datos históricos de acciones
 def fetch_stock_data(ticker, period="6mo", interval="1d"):
-    """Obtiene datos históricos de Yahoo Finance."""
+    """Obtiene datos históricos de Yahoo Finance y calcula indicadores técnicos."""
     data = yf.download(ticker, period=period, interval=interval)
+
     if data.empty:
         st.error(f"No se encontraron datos históricos para {ticker}.")
         return pd.DataFrame()
+
+    # Validar y limpiar datos
+    data = data.dropna()  # Eliminar filas con NaN
+    if data.empty:
+        st.error(f"Los datos de {ticker} contienen valores faltantes.")
+        return pd.DataFrame()
+
     # Calcular indicadores técnicos
-    data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
-    data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
-    data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
-    data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
+    try:
+        data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
+        data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
+        data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
+        data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
+    except Exception as e:
+        st.error(f"Error al calcular indicadores técnicos: {e}")
+        return pd.DataFrame()
+
     return data
 
 # Aplicación principal de Streamlit
