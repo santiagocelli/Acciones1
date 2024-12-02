@@ -1,41 +1,28 @@
-# app.py
-import streamlit as st
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import mplfinance as mpf
-import yfinance as yf
-import ta
-
 def fetch_sp500_data():
     """Web scrapes S&P 500 data."""
     url = "https://finance.yahoo.com/quote/%5EGSPC/components/"
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
     table = soup.find("table")
+    
+    if not table:
+        st.error("No se encontró la tabla en la página web de S&P 500.")
+        return pd.DataFrame()  # Devuelve un DataFrame vacío si no hay tabla
+
     df = pd.read_html(str(table))[0]
+
+    # Verificar si la columna 'Symbol' existe
+    if "Symbol" not in df.columns:
+        st.warning("La columna 'Symbol' no se encuentra en los datos.")
+        st.write("Columnas disponibles:", df.columns)
+        return pd.DataFrame()  # Devuelve un DataFrame vacío si falta la columna
+
     return df
+Manejo de errores en la función main:
+Asegúrate de que el programa valida si sp500_data tiene contenido antes de proceder:
 
-def fetch_merval_data():
-    """Web scrapes Merval data."""
-    url = "https://es.investing.com/indices/merval-components"
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, "html.parser")
-    table = soup.find("table", {"class": "genTbl"})
-    df = pd.read_html(str(table))[0]
-    return df
-
-def fetch_stock_data(ticker, period="6mo", interval="1d"):
-    """Fetch historical data for a stock using Yahoo Finance."""
-    data = yf.download(ticker, period=period, interval=interval)
-    data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
-    data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
-    data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
-    data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
-    return data
-
-# Streamlit Application
+python
+Copiar código
 def main():
     st.title("Indicadores de Acciones - S&P 500 y Merval")
     st.sidebar.title("Opciones")
@@ -45,42 +32,34 @@ def main():
     sp500_data = fetch_sp500_data()
     merval_data = fetch_merval_data()
 
+    if sp500_data.empty:
+        st.error("No se pudieron cargar los datos de S&P 500. Intenta más tarde.")
+        return
+    if merval_data.empty:
+        st.error("No se pudieron cargar los datos de Merval. Intenta más tarde.")
+        return
+
     # Menu Selection
     index_option = st.sidebar.selectbox("Seleccione un índice", ["S&P 500", "Merval"])
     
     if index_option == "S&P 500":
         st.header("S&P 500")
-        ticker = st.sidebar.selectbox("Seleccione una acción", sp500_data["Symbol"].tolist())
+        st.write("Estructura de los datos:")
+        st.dataframe(sp500_data)
+
+        # Validar existencia de la columna antes de mostrar el selector
+        if "Symbol" in sp500_data.columns:
+            ticker = st.sidebar.selectbox("Seleccione una acción", sp500_data["Symbol"].tolist())
+            st.write(f"Mostrando datos para: {ticker}")
+        else:
+            st.error("No se encontró la columna 'Symbol' en los datos de S&P 500.")
+
     elif index_option == "Merval":
         st.header("Merval")
-        ticker = st.sidebar.selectbox("Seleccione una acción", merval_data["Ticker"].tolist())
-    
-    # Fetch and Display Stock Data
-    st.write(f"Mostrando datos para: {ticker}")
-    period = st.sidebar.selectbox("Seleccione el período", ["1mo", "3mo", "6mo", "1y", "5y"])
-    interval = st.sidebar.selectbox("Seleccione el intervalo", ["1d", "1wk", "1mo"])
+        st.dataframe(merval_data)
 
-    stock_data = fetch_stock_data(ticker, period=period, interval=interval)
-
-    # Display OHLC Data
-    st.write("Datos históricos (OHLC):")
-    st.dataframe(stock_data.tail(10))
-
-    # Display Candle Chart with Indicators
-    st.write("Gráfico de Velas con Indicadores:")
-    fig, ax = mpf.plot(
-        stock_data,
-        type="candle",
-        mav=(20, 50),  # Simple moving averages
-        volume=True,
-        returnfig=True,
-        style="yahoo"
-    )
-    st.pyplot(fig)
-
-    # Additional Indicators
-    st.write("Indicadores Técnicos:")
-    st.line_chart(stock_data[["RSI", "MACD", "Signal"]])
-
-if __name__ == "__main__":
-    main()
+        if "Ticker" in merval_data.columns:
+            ticker = st.sidebar.selectbox("Seleccione una acción", merval_data["Ticker"].tolist())
+            st.write(f"Mostrando datos para: {ticker}")
+        else:
+            st.error("No se encontró la columna 'Ticker' en los datos de Merval.")
