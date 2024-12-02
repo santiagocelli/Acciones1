@@ -25,22 +25,28 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
         st.error(f"No se encontraron datos históricos para {ticker}.")
         return pd.DataFrame()
 
-    # Validar y limpiar datos
-    data = data.dropna()  # Eliminar filas con NaN
-    if data.empty:
-        st.error(f"Los datos de {ticker} contienen valores faltantes.")
+    # Validar columnas requeridas
+    required_columns = ["Open", "High", "Low", "Close", "Volume"]
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    if missing_columns:
+        st.error(f"Faltan las siguientes columnas en los datos: {missing_columns}")
         return pd.DataFrame()
 
-    # Convertir columnas relevantes a float
-    for col in ["Open", "High", "Low", "Close", "Volume"]:
-        if col in data.columns:
+    # Validar y convertir datos a numérico
+    for col in required_columns:
+        if data[col].isnull().all():
+            st.error(f"La columna {col} contiene solo valores nulos.")
+            return pd.DataFrame()
+        try:
             data[col] = pd.to_numeric(data[col], errors="coerce")
-
-    # Forzar las columnas necesarias como pandas.Series unidimensionales
-    close_series = data["Close"].squeeze()
+        except TypeError:
+            st.error(f"Error al convertir la columna {col} a numérico.")
+            return pd.DataFrame()
 
     # Calcular indicadores técnicos
     try:
+        close_series = data["Close"]
+
         # RSI
         rsi_indicator = ta.momentum.RSIIndicator(close_series)
         data["RSI"] = rsi_indicator.rsi()
