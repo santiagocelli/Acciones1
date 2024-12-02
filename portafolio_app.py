@@ -81,8 +81,8 @@ def plot_close_price(data):
         idx_level = min_level
 
     
-    background = plt.imread('assets/logo_source.png')
-    logo = plt.imread('assets/pypro_logo_plot.png')
+    background = plt.imread('logo_source.png')
+    logo = plt.imread('pypro_logo_plot.png')
     font = {'family': 'sans-serif',
         'color':  'white',
         'weight': 'normal',
@@ -185,7 +185,7 @@ def plot_prophet(data, n_forecast=365):
 #### LAYOUT - Sidebar
 ###########################
 
-logo_pypro = Image.open('assets/pypro_logo_plot.png')
+logo_pypro = Image.open('pypro_logo_plot.png')
 with st.sidebar:
     st.image(logo_pypro)
     stock = st.selectbox('Ticker', ['NVDA','TSLA','MSFT','AMZN','INTC','AMD','JNJ','BABA','GOOGL','QCOM'], index=1)
