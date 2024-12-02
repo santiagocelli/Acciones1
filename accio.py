@@ -3,7 +3,9 @@ import streamlit as st
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import matplotlib.pyplot as plt
+import mplfinance as mpf
+import yfinance as yf
+import ta
 
 def fetch_sp500_data():
     """Web scrapes S&P 500 data."""
@@ -24,6 +26,15 @@ def fetch_merval_data():
     df = pd.read_html(str(table))[0]
     return df
 
+def fetch_stock_data(ticker, period="6mo", interval="1d"):
+    """Fetch historical data for a stock using Yahoo Finance."""
+    data = yf.download(ticker, period=period, interval=interval)
+    data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
+    data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
+    data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
+    data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
+    return data
+
 # Streamlit Application
 def main():
     st.title("Indicadores de Acciones - S&P 500 y Merval")
@@ -39,23 +50,37 @@ def main():
     
     if index_option == "S&P 500":
         st.header("S&P 500")
-        st.dataframe(sp500_data)
-
-        # Ticker Selection
-        ticker = st.sidebar.selectbox("Seleccione una acción", sp500_data["Symbol"])
-        ticker_data = sp500_data[sp500_data["Symbol"] == ticker]
-        st.write(f"Datos de {ticker}")
-        st.table(ticker_data)
-
+        ticker = st.sidebar.selectbox("Seleccione una acción", sp500_data["Symbol"].tolist())
     elif index_option == "Merval":
         st.header("Merval")
-        st.dataframe(merval_data)
+        ticker = st.sidebar.selectbox("Seleccione una acción", merval_data["Ticker"].tolist())
+    
+    # Fetch and Display Stock Data
+    st.write(f"Mostrando datos para: {ticker}")
+    period = st.sidebar.selectbox("Seleccione el período", ["1mo", "3mo", "6mo", "1y", "5y"])
+    interval = st.sidebar.selectbox("Seleccione el intervalo", ["1d", "1wk", "1mo"])
 
-        # Ticker Selection
-        ticker = st.sidebar.selectbox("Seleccione una acción", merval_data["Ticker"])
-        ticker_data = merval_data[merval_data["Ticker"] == ticker]
-        st.write(f"Datos de {ticker}")
-        st.table(ticker_data)
+    stock_data = fetch_stock_data(ticker, period=period, interval=interval)
+
+    # Display OHLC Data
+    st.write("Datos históricos (OHLC):")
+    st.dataframe(stock_data.tail(10))
+
+    # Display Candle Chart with Indicators
+    st.write("Gráfico de Velas con Indicadores:")
+    fig, ax = mpf.plot(
+        stock_data,
+        type="candle",
+        mav=(20, 50),  # Simple moving averages
+        volume=True,
+        returnfig=True,
+        style="yahoo"
+    )
+    st.pyplot(fig)
+
+    # Additional Indicators
+    st.write("Indicadores Técnicos:")
+    st.line_chart(stock_data[["RSI", "MACD", "Signal"]])
 
 if __name__ == "__main__":
     main()
