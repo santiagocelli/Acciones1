@@ -33,10 +33,20 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
 
     # Calcular indicadores técnicos
     try:
-        data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
-        data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
-        data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
-        data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
+        # RSI
+        rsi_indicator = ta.momentum.RSIIndicator(data["Close"])
+        data["RSI"] = rsi_indicator.rsi()
+
+        # MACD
+        macd_indicator = ta.trend.MACD(data["Close"])
+        data["MACD"] = macd_indicator.macd()
+        data["Signal"] = macd_indicator.macd_signal()
+
+        # Medias móviles
+        sma_20 = ta.trend.SMAIndicator(data["Close"], window=20)
+        sma_50 = ta.trend.SMAIndicator(data["Close"], window=50)
+        data["SMA_20"] = sma_20.sma_indicator()
+        data["SMA_50"] = sma_50.sma_indicator()
     except Exception as e:
         st.error(f"Error al calcular indicadores técnicos: {e}")
         return pd.DataFrame()
