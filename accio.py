@@ -34,14 +34,15 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
 
     # Validar y convertir datos a numérico
     for col in required_columns:
-        if data[col].isnull().all():
-            st.error(f"La columna {col} contiene solo valores nulos.")
-            return pd.DataFrame()
-        try:
-            data[col] = pd.to_numeric(data[col], errors="coerce")
-        except TypeError:
-            st.error(f"Error al convertir la columna {col} a numérico.")
-            return pd.DataFrame()
+        if col in data.columns:  # Asegurar que la columna existe
+            if data[col].isnull().all():  # Verificar si todos los valores son nulos
+                st.error(f"La columna {col} contiene solo valores nulos.")
+                return pd.DataFrame()
+            try:
+                data[col] = pd.to_numeric(data[col], errors="coerce")  # Convertir a numérico
+            except Exception as e:
+                st.error(f"Error al convertir la columna {col} a numérico: {e}")
+                return pd.DataFrame()
 
     # Calcular indicadores técnicos
     try:
@@ -66,7 +67,6 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
         return pd.DataFrame()
 
     return data
-
 # Aplicación principal de Streamlit
 def main():
     st.title("Indicadores de Acciones - S&P 500 y Merval")
