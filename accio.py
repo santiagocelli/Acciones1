@@ -31,20 +31,23 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
         st.error(f"Los datos de {ticker} contienen valores faltantes.")
         return pd.DataFrame()
 
+    # Forzar la columna "Close" como pandas.Series unidimensional
+    close_series = data["Close"].squeeze()
+
     # Calcular indicadores técnicos
     try:
         # RSI
-        rsi_indicator = ta.momentum.RSIIndicator(data["Close"])
+        rsi_indicator = ta.momentum.RSIIndicator(close_series)
         data["RSI"] = rsi_indicator.rsi()
 
         # MACD
-        macd_indicator = ta.trend.MACD(data["Close"])
+        macd_indicator = ta.trend.MACD(close_series)
         data["MACD"] = macd_indicator.macd()
         data["Signal"] = macd_indicator.macd_signal()
 
         # Medias móviles
-        sma_20 = ta.trend.SMAIndicator(data["Close"], window=20)
-        sma_50 = ta.trend.SMAIndicator(data["Close"], window=50)
+        sma_20 = ta.trend.SMAIndicator(close_series, window=20)
+        sma_50 = ta.trend.SMAIndicator(close_series, window=50)
         data["SMA_20"] = sma_20.sma_indicator()
         data["SMA_50"] = sma_50.sma_indicator()
     except Exception as e:
