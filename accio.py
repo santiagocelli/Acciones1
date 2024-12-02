@@ -1,65 +1,81 @@
-def fetch_sp500_data():
-    """Web scrapes S&P 500 data."""
-    url = "https://finance.yahoo.com/quote/%5EGSPC/components/"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
-    table = soup.find("table")
-    
-    if not table:
-        st.error("No se encontró la tabla en la página web de S&P 500.")
-        return pd.DataFrame()  # Devuelve un DataFrame vacío si no hay tabla
+import streamlit as st
+import pandas as pd
+import yfinance as yf
+import mplfinance as mpf
+import ta
 
-    df = pd.read_html(str(table))[0]
+# Función para obtener lista de empresas del S&P 500
+def fetch_sp500_list():
+    """Obtiene la lista de empresas del S&P 500 desde Wikipedia."""
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    sp500 = pd.read_html(url)[0]
+    return sp500["Symbol"].tolist()
 
-    # Verificar si la columna 'Symbol' existe
-    if "Symbol" not in df.columns:
-        st.warning("La columna 'Symbol' no se encuentra en los datos.")
-        st.write("Columnas disponibles:", df.columns)
-        return pd.DataFrame()  # Devuelve un DataFrame vacío si falta la columna
+# Función para obtener lista de empresas del Merval
+def fetch_merval_list():
+    """Lista predefinida de empresas del Merval."""
+    # Aquí se puede usar scraping o una API para obtener la lista actualizada.
+    return ["GGAL.BA", "YPF.BA", "PAMP.BA", "TXAR.BA", "BMA.BA"]
 
-    return df
-Manejo de errores en la función main:
-Asegúrate de que el programa valida si sp500_data tiene contenido antes de proceder:
+# Función para obtener datos históricos de acciones
+def fetch_stock_data(ticker, period="6mo", interval="1d"):
+    """Obtiene datos históricos de Yahoo Finance."""
+    data = yf.download(ticker, period=period, interval=interval)
+    if data.empty:
+        st.error(f"No se encontraron datos históricos para {ticker}.")
+        return pd.DataFrame()
+    # Calcular indicadores técnicos
+    data["RSI"] = ta.momentum.RSIIndicator(data["Close"]).rsi()
+    data["MACD"], data["Signal"] = ta.trend.MACD(data["Close"]).macd_signal()
+    data["SMA_20"] = ta.trend.SMAIndicator(data["Close"], window=20).sma_indicator()
+    data["SMA_50"] = ta.trend.SMAIndicator(data["Close"], window=50).sma_indicator()
+    return data
 
-python
-Copiar código
+# Aplicación principal de Streamlit
 def main():
     st.title("Indicadores de Acciones - S&P 500 y Merval")
     st.sidebar.title("Opciones")
 
-    # Fetch data
-    st.sidebar.text("Cargando datos...")
-    sp500_data = fetch_sp500_data()
-    merval_data = fetch_merval_data()
-
-    if sp500_data.empty:
-        st.error("No se pudieron cargar los datos de S&P 500. Intenta más tarde.")
-        return
-    if merval_data.empty:
-        st.error("No se pudieron cargar los datos de Merval. Intenta más tarde.")
-        return
-
-    # Menu Selection
+    # Opciones de índices
     index_option = st.sidebar.selectbox("Seleccione un índice", ["S&P 500", "Merval"])
-    
+    period = st.sidebar.selectbox("Seleccione el período", ["1mo", "3mo", "6mo", "1y", "5y"])
+    interval = st.sidebar.selectbox("Seleccione el intervalo", ["1d", "1wk", "1mo"])
+
+    # Listar acciones según el índice seleccionado
     if index_option == "S&P 500":
-        st.header("S&P 500")
-        st.write("Estructura de los datos:")
-        st.dataframe(sp500_data)
-
-        # Validar existencia de la columna antes de mostrar el selector
-        if "Symbol" in sp500_data.columns:
-            ticker = st.sidebar.selectbox("Seleccione una acción", sp500_data["Symbol"].tolist())
-            st.write(f"Mostrando datos para: {ticker}")
-        else:
-            st.error("No se encontró la columna 'Symbol' en los datos de S&P 500.")
-
+        tickers = fetch_sp500_list()
     elif index_option == "Merval":
-        st.header("Merval")
-        st.dataframe(merval_data)
+        tickers = fetch_merval_list()
 
-        if "Ticker" in merval_data.columns:
-            ticker = st.sidebar.selectbox("Seleccione una acción", merval_data["Ticker"].tolist())
-            st.write(f"Mostrando datos para: {ticker}")
-        else:
-            st.error("No se encontró la columna 'Ticker' en los datos de Merval.")
+    # Seleccionar acción
+    ticker = st.sidebar.selectbox("Seleccione una acción", tickers)
+    st.write(f"Mostrando datos para: {ticker}")
+
+    # Obtener datos históricos
+    stock_data = fetch_stock_data(ticker, period=period, interval=interval)
+
+    if stock_data.empty:
+        return
+
+    # Mostrar datos históricos
+    st.write("Datos históricos (OHLC):")
+    st.dataframe(stock_data.tail(10))
+
+    # Mostrar gráfico de velas con indicadores técnicos
+    st.write("Gráfico de Velas con Indicadores:")
+    fig, ax = mpf.plot(
+        stock_data,
+        type="candle",
+        mav=(20, 50),  # Simple moving averages
+        volume=True,
+        returnfig=True,
+        style="yahoo"
+    )
+    st.pyplot(fig)
+
+    # Mostrar indicadores técnicos adicionales
+    st.write("Indicadores Técnicos:")
+    st.line_chart(stock_data[["RSI", "MACD", "Signal"]])
+
+if __name__ == "__main__":
+    main()
