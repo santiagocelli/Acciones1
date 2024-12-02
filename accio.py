@@ -36,7 +36,7 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
     for col in required_columns:
         if col in data.columns:  # Asegurar que la columna existe
             # Reemplazo: Verificar si todos los valores son nulos de manera segura
-            if data[col].isnull().sum() == len(data[col]):  # Comparar el total de nulos con el tamaño
+            if data[col].isna().sum() == len(data[col]):  # Comparar el total de nulos con el tamaño
                 st.error(f"La columna {col} contiene solo valores nulos.")
                 return pd.DataFrame()
             try:
