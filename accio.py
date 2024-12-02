@@ -31,23 +31,23 @@ def fetch_stock_data(ticker, period="6mo", interval="1d"):
         st.error(f"Los datos de {ticker} contienen valores faltantes.")
         return pd.DataFrame()
 
-    # Forzar la columna "Close" como pandas.Series unidimensional
-    close_series = data["Close"].squeeze()
+    # Convertir columnas numéricas a float
+    data = data.astype({"Open": "float", "High": "float", "Low": "float", "Close": "float", "Volume": "float"})
 
     # Calcular indicadores técnicos
     try:
         # RSI
-        rsi_indicator = ta.momentum.RSIIndicator(close_series)
+        rsi_indicator = ta.momentum.RSIIndicator(data["Close"])
         data["RSI"] = rsi_indicator.rsi()
 
         # MACD
-        macd_indicator = ta.trend.MACD(close_series)
+        macd_indicator = ta.trend.MACD(data["Close"])
         data["MACD"] = macd_indicator.macd()
         data["Signal"] = macd_indicator.macd_signal()
 
         # Medias móviles
-        sma_20 = ta.trend.SMAIndicator(close_series, window=20)
-        sma_50 = ta.trend.SMAIndicator(close_series, window=50)
+        sma_20 = ta.trend.SMAIndicator(data["Close"], window=20)
+        sma_50 = ta.trend.SMAIndicator(data["Close"], window=50)
         data["SMA_20"] = sma_20.sma_indicator()
         data["SMA_50"] = sma_50.sma_indicator()
     except Exception as e:
@@ -86,17 +86,26 @@ def main():
     st.write("Datos históricos (OHLC):")
     st.dataframe(stock_data.tail(10))
 
+    # Validar columnas para mplfinance
+    required_columns = ["Open", "High", "Low", "Close", "Volume"]
+    if not all(col in stock_data.columns for col in required_columns):
+        st.error(f"Faltan columnas necesarias para el gráfico: {required_columns}")
+        return
+
     # Mostrar gráfico de velas con indicadores técnicos
     st.write("Gráfico de Velas con Indicadores:")
-    fig, ax = mpf.plot(
-        stock_data,
-        type="candle",
-        mav=(20, 50),  # Simple moving averages
-        volume=True,
-        returnfig=True,
-        style="yahoo"
-    )
-    st.pyplot(fig)
+    try:
+        fig, ax = mpf.plot(
+            stock_data,
+            type="candle",
+            mav=(20, 50),  # Simple moving averages
+            volume=True,
+            returnfig=True,
+            style="yahoo"
+        )
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"Error al generar el gráfico de velas: {e}")
 
     # Mostrar indicadores técnicos adicionales
     st.write("Indicadores Técnicos:")
